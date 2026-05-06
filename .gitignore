@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Project artifacts (heavy / regenerable)
+data/*.csv
+data/*.parquet
+data/raw/*
+!data/raw/.gitkeep
+data/staging/*
+!data/staging/.gitkeep
+data/curated/*
+!data/curated/.gitkeep
+models/*
+!models/.gitkeep
+mlruns/
+reports/figures/*
+!reports/figures/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# Env
+.env
+.env.local

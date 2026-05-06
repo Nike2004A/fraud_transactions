@@ -1,0 +1,11 @@
+feature,mean_abs_shap
+log1p_amt,0.2789204
+rolling_amt_mean_24h,0.18282638
+rolling_amt_std_24h,0.059033185
+hour,0.05497055
+te_category,0.039091505
+rolling_amt_std_7d,0.036113147
+hour_cos,0.028387673
+rolling_amt_mean_7d,0.027139133
+te_merchant,0.018615708
+hour_sin,0.014965498
