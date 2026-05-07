@@ -10,12 +10,14 @@ flowchart LR
     B -->|Fase 2<br/>features| C[Parquet curado<br/>27 features]
     C -->|Fase 3<br/>train + tune| D[xgb_best.json<br/>+ MLflow]
     D -->|Fase 4<br/>evaluate| E[Reportes<br/>+ calibrator.pkl]
+    E -->|Fase 5<br/>package| F[Docker fraud-api<br/>+ Streamlit UI<br/>+ batch_score.py]
 
     style A fill:#f5f5f5
     style B fill:#e8f4f8
     style C fill:#e8f4f8
     style D fill:#fff3e0
     style E fill:#e8f5e9
+    style F fill:#e1bee7
 ```
 
 Cada fase es **idempotente** y trackeable con `make <fase>`. El único input externo es el CSV de Kaggle.
@@ -195,3 +197,27 @@ Todas las fases:
 - `test_features.py` — anti-leakage en rolling, target encoding, p95.
 - `test_train.py` — splits disjuntos, no target en X, baseline supera piso.
 - `test_evaluate.py` — round-trip de modelo, calibración mejora Brier, aditividad SHAP.
+
+---
+
+## Fase 5 — Packaging + servicios
+
+**Outputs**:
+- Imagen Docker `fraud-api` (~1 GB, CPU-only) con FastAPI + modelo + calibrador embebidos.
+- Streamlit UI local en [`fraud_ui/`](../fraud_ui/) con dropdown de tx, score y SHAP top-5.
+- CLI [`scripts/batch_score.py`](../scripts/batch_score.py) que reproduce PR-AUC = 0.8771 sobre el test set entero vía API (sanity end-to-end).
+
+**Decisiones clave**:
+- API en container, UI local, UI lee parquet directo. Ver [ADR-14](architecture_decisions.md#adr-14--api-containerizada--ui-streamlit-local--ui-lee-parquet-directo).
+- Modelo, calibrador y `TreeExplainer` se cargan **una sola vez** en el lifespan startup. `/score` responde en ~20 ms en CPU local (la mayor parte es SHAP).
+- Las features `rolling_*` y `te_*` admiten `null` JSON: XGBoost las trata como missing-value; sin esto el ~98 % del test set sería inutilizable.
+- Decisiones a thresholds 0.6642 (F1*) y 0.52 (mín costo) se aplican al **score crudo** — el calibrado se reporta como probabilidad pero no decide.
+
+**Tests**: 11 tests con `FastAPI TestClient` (`fraud_api/tests/test_api.py`) + 2 tests con monkeypatch para `batch_score` (`tests/test_batch_score.py`). 27 tests totales en el repo, todos pasando.
+
+```bash
+make api-docker-build         # construye fraud-api
+make api-docker-run           # levanta el container
+make ui                       # streamlit en otra terminal
+make batch-score              # PR-AUC = 0.8771 ✓
+```

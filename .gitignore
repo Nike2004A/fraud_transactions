@@ -25,6 +25,8 @@ data/staging/*
 !data/staging/.gitkeep
 data/curated/*
 !data/curated/.gitkeep
+data/scored/*
+!data/scored/.gitkeep
 models/*
 !models/.gitkeep
 mlruns/

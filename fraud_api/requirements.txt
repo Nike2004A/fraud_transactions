@@ -1,0 +1,13 @@
+# Pinned para reproducibilidad. CRÍTICO: scikit-learn debe ser >=1.7,<1.8
+# para deserializar calibrator.pkl (entrenado con 1.7.x). xgboost debe
+# ser 2.1.x para que el JSON cargue compatible con cómo se entrenó.
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+# xgboost-cpu == xgboost sin las wheels de CUDA (~50 MB vs ~330 MB).
+# El modelo JSON es cross-compatible entre xgboost y xgboost-cpu.
+xgboost-cpu==2.1.4
+shap==0.49.1
+scikit-learn==1.7.2
+numpy==2.2.6
+pandas==2.3.3

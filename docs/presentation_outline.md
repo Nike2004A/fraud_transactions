@@ -185,6 +185,26 @@ Sub-mensaje: gap val→test = **1.2 puntos**, sin overfit en split temporal.
 
 ---
 
+## Slide 11.5 — Demo en vivo: API + UI
+
+**Título**: Cómo se consume el modelo
+
+**Contenido**:
+- **fraud-api**: container Docker con FastAPI + xgboost-cpu (~1 GB). 3 endpoints: `/healthz`, `/score`, `/score_batch`. Modelo + calibrador + TreeExplainer cargados una sola vez al startup.
+- **fraud_ui**: Streamlit local con dropdown de tx, score crudo + calibrado, decisión a thr 0.6642 y 0.52, SHAP top-5 con barras + signo.
+- **batch_score.py**: CLI que reproduce PR-AUC = 0.8771 sobre el test set entero vía API (sanity end-to-end).
+
+**Demo (5 min)**:
+1. `make api-docker-run` — el container responde en `/healthz`.
+2. `make ui` — clic en "Random fraude" → score 0.67 → "FRAUDE detectada" → SHAP muestra `rolling_amt_mean_24h` + `log1p_amt` como top contributors (consistente con el análisis de Fase 4).
+3. `make batch-score` — 194,502 rows scoreados en ~20 s, PR-AUC reproduce el valor de Fase 4 → la lógica de scoring del API es **bit-exact** con `evaluate.py`.
+
+**Speaker note**: el punto principal es que el modelo no se quedó en un parquet — está empaquetado, testeado (27 tests) y consumible como servicio. Las 3 piezas (API, UI, batch) cubren los tres casos de uso reales: integración, demo, replay de histórico.
+
+**Referencia**: [`docs/api_reference.md`](api_reference.md) + [ADR-14](architecture_decisions.md#adr-14--api-containerizada--ui-streamlit-local--ui-lee-parquet-directo).
+
+---
+
 ## Slide 12 — Las 3 salvedades honestas
 
 **Título**: Lo que no es perfecto

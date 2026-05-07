@@ -175,3 +175,29 @@ Decisiones de diseño del proyecto, en formato corto. Cada ADR explica **qué se
 - **FP = $5**: costo aproximado de revisión manual por un analista de fraude (5 minutos × salario).
 
 **Sensibilidad**: si FP fuera $50 en lugar de $5, el threshold óptimo subiría (compensaría mejor por menos alertas). En producción habría que medir el costo real (chargeback fees, customer churn, costo de customer service) y recalcular periódicamente.
+
+---
+
+## ADR-14 — API containerizada + UI Streamlit local + UI lee parquet directo
+
+**Decisión**:
+1. El API (FastAPI + uvicorn) corre en su **propio container Docker** (`fraud-api`). Modelo y calibrador van **embebidos en la imagen**.
+2. La UI (Streamlit) corre **local**, NO en Docker. Se conecta al API por HTTP via `API_URL` (env var).
+3. La UI lee `data/curated/transactions_features.parquet` y `data/staging/transactions.parquet` **directo de disco** para cargar transacciones de ejemplo. **No existe** un endpoint `/samples` en el API.
+4. El API expone exactamente 3 endpoints: `GET /healthz`, `POST /score`, `POST /score_batch`. Nada más.
+
+**Razón**:
+
+- **API container**: el modelo + calibrador + TreeExplainer son artefactos pesados (~30 MB de modelo, dependencias Python ~700 MB). Quemarlos en una imagen permite que cualquier consumer (UI, batch script, integraciones futuras) hablen el mismo protocolo HTTP sin replicar la carga. CPU-only para portabilidad — el modelo entrena con CUDA (Fase 3) pero infiere fino en CPU.
+- **UI local**: Streamlit en Docker es overkill para una demo. Bind del puerto, watch mode, compartir el filesystem para los parquets — todo se vuelve fricción. Local es un comando (`streamlit run app.py`) y el desarrollador tiene hot-reload nativo.
+- **UI lee parquet directo**: agregar `/samples` al API mezcla responsabilidades: el API pasa de ser "inferencia" a ser "data + inferencia". En producción los samples vendrían de un sistema separado (kafka, snowflake, etc.) — la UI demo replica eso leyendo parquet local. Mantener el API minimal facilita reuso.
+- **Solo 3 endpoints**: scope-creep es el enemigo del software bien diseñado. El API hace una cosa: scorea features.
+
+**Trade-offs**:
+
+- La UI necesita acceso al parquet, no es portable a otra máquina sin los datos. Aceptable para una demo capstone.
+- El batch_score.py se conecta al API por HTTP en lugar de cargar el modelo localmente. Es 10× más lento pero garantiza que **la lógica de scoring es la misma** que producción (anti-skew). El sanity check de PR-AUC = 0.8771 sobre los 194,502 rows del test set se reproduce end-to-end.
+
+**Threshold semantics**: `decision_operating` (0.6642) y `decision_cost` (0.52) se aplican al **score crudo**, no al calibrado. Es lo mismo que hace [`src/evaluate.py`](../src/evaluate.py). El score calibrado se reporta como probabilidad interpretable pero no decide; ver ADR-09.
+
+**Manejo de NaN**: las features `rolling_*` y `te_*` admiten `null` JSON (sentinel para NaN) — XGBoost los maneja como missing-value durante la inferencia. Sin esto el ~98 % del test set sería inutilizable (cualquier primera tx en una ventana tiene std/count indefinidos). Las features no-nullable (`hour`, `dow`, `is_night`, `amt_gt_p95_legit`) provienen del timestamp y siempre existen.
