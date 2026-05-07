@@ -41,3 +41,7 @@ reports/figures/*
 # Env
 .env
 .env.local
+
+# macOS
+.DS_Store
+**/.DS_Store
